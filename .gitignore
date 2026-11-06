@@ -3,6 +3,8 @@ admin.html
 assets/js/admin.js
 stream/
 stream.cmd
+publish/
+publish.cmd
 seed/*.json
 dist/
 .CLUTCH.TV.qoder.site
