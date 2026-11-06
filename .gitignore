@@ -1,0 +1,8 @@
+# Локальное — не публикуется на GitHub
+admin.html
+assets/js/admin.js
+stream/
+stream.cmd
+seed/*.json
+dist/
+.CLUTCH.TV.qoder.site
