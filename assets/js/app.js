@@ -58,6 +58,7 @@
     },
     teams() { return Store.list('teams').slice().sort((a, b) => (b.points || 0) - (a.points || 0)); },
     players() { return Store.allPlayers(); },
+    bench() { return Store.benchList(); },
     events() {
       const all = Store.list('events');
       const live = all.filter((e) => e.status !== 'finished').sort((a, b) => new Date(a.start) - new Date(b.start));
@@ -280,6 +281,7 @@
     ['events.html', 'events', 'Турниры'],
     ['bracket.html', 'brackets', 'Сетки'],
     ['players.html', 'players', 'Игроки'],
+    ['bench.html', 'bench', 'Запас'],
     ['admin.html', 'admin', 'Админка']
   ];
 
@@ -857,6 +859,42 @@
     </div>`;
   }
 
+  /* ---- bench of teams ---- */
+  function pageBench() {
+    const mount = document.getElementById('content');
+    document.title = 'Запас команд — CLUTCH.TV';
+    const rows = Views.bench();
+    const count = rows.reduce((n, row) => n + row.players.length, 0);
+
+    const list = rows.length ? rows.map((row) => `<div class="panel">
+        <header>${teamName(row.team.name)}<small class="meta">${esc([row.team.short, row.team.region].filter(Boolean).join(' · '))}</small></header>
+        <table class="tbl"><thead><tr><th>Игрок</th><th>Роль</th><th class="num">Возраст</th><th class="num">Рейтинг</th></tr></thead>
+        <tbody>${row.players.map((p) => `<tr>
+          <td>${playerLink(p.nick)}</td>
+          <td>${p.rec && p.rec.role ? esc(ROLE_LABEL[p.rec.role] || p.rec.role) : 'запасной'}</td>
+          <td class="num">${p.rec && p.rec.age ? esc(p.rec.age) : '—'}</td>
+          <td class="num">${p.rec && p.rec.rating ? esc(p.rec.rating) : '—'}</td>
+        </tr>`).join('')}</tbody></table>
+      </div>`).join('')
+      : emptyBlock('Запаса нет ни у одной команды',
+        'Никнеймы запаса пишутся в админке в карточке команды, в поле «Запас через запятую». Здесь они появятся списком по командам.', { cta: false });
+
+    mount.innerHTML = `<div class="cols">
+      <main>
+        <div class="page-title"><h1>Запас команд</h1><p>${count} ${plural(count, 'игрок', 'игрока', 'игроков')} вне основных составов · ${rows.length} ${plural(rows.length, 'команда', 'команды', 'команд')}</p></div>
+        ${list}
+      </main>
+      <aside>
+        <div class="panel"><header>Откуда берётся запас</header><div class="body">
+          <p class="hint">Основной состав и запас — две разные строки команды. Игрок из запаса числится за командой, его ник ведёт на обычный профиль, но в состав матча он не попадает.</p>
+        </div></div>
+        <div class="panel"><header>Связанные страницы</header><div class="body">
+          <p class="tabs"><a class="btn" href="players.html">Все игроки</a><a class="btn" href="rankings.html">Рейтинг команд</a></p>
+        </div></div>
+      </aside>
+    </div>`;
+  }
+
   /* ---- brackets ---- */
   const TYPE_LABEL = { single: 'Сетка с выбыванием', double: 'Сетка с нижней сеткой', swiss: 'Швейцарская система' };
   const TYPE_TITLE = {
@@ -1147,7 +1185,7 @@
     </div>`;
   }
 
-  const ROUTES = { home: pageHome, news: pageNews, matches: pageMatches, rankings: pageRankings, events: pageEvents, event: pageEvent, article: pageArticle, brackets: pageBrackets, team: pageTeam, player: pagePlayer, players: pagePlayers };
+  const ROUTES = { home: pageHome, news: pageNews, matches: pageMatches, rankings: pageRankings, events: pageEvents, event: pageEvent, article: pageArticle, brackets: pageBrackets, team: pageTeam, player: pagePlayer, players: pagePlayers, bench: pageBench };
 
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-act="seed"]');

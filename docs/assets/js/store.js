@@ -262,7 +262,33 @@
 
   function teamOfNick(nick) {
     const want = normNick(nick);
-    return Store.list('teams').find((t) => (t.roster || []).some((n) => normNick(n) === want)) || null;
+    return Store.list('teams').find((t) => lineOf(t, want) ? true : false) || null;
+  }
+
+  /* Запас — вторая строка команды: игрок числится за командой, но в основном составе не стоит. */
+  function lineOf(team, want) {
+    if (!team || !want) return '';
+    const inRoster = (team.roster || []).map(realNick).find((n) => normNick(n) === want);
+    return inRoster || (team.bench || []).map(realNick).find((n) => normNick(n) === want) || '';
+  }
+
+  function benchPlayers(team) {
+    if (!team) return [];
+    const seen = {};
+    const list = [];
+    (team.bench || []).forEach((raw) => {
+      const nick = realNick(raw);
+      if (!nick || seen[normNick(nick)]) return;
+      seen[normNick(nick)] = true;
+      list.push({ nick, team, rec: playerRecord(nick) });
+    });
+    return list;
+  }
+
+  function benchList() {
+    return Store.list('teams').slice().sort((a, b) => (b.points || 0) - (a.points || 0))
+      .map((team) => ({ team, players: benchPlayers(team) }))
+      .filter((row) => row.players.length);
   }
 
   function rosterPlayers(team) {
@@ -283,7 +309,7 @@
     const teams = Store.list('teams').slice().sort((a, b) => (b.points || 0) - (a.points || 0));
     const seen = {};
     const out = [];
-    teams.forEach((team) => rosterPlayers(team).forEach((p) => {
+    teams.forEach((team) => rosterPlayers(team).concat(benchPlayers(team)).forEach((p) => {
       seen[normNick(p.nick)] = true;
       out.push(p);
     }));
@@ -302,7 +328,7 @@
     if (!want) return null;
     const team = teamOfNick(want);
     if (team) {
-      const line = (team.roster || []).map(realNick).find((n) => normNick(n) === want);
+      const line = lineOf(team, want);
       return { nick: line || String(nick).trim(), team, rec: playerRecord(want) };
     }
     const rec = playerRecord(want);
@@ -629,6 +655,8 @@
     playerHistory,
     teamOfNick,
     rosterPlayers,
+    benchPlayers,
+    benchList,
     allPlayers,
     realNick,
     state: read(),
