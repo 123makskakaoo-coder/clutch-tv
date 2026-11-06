@@ -5,7 +5,7 @@ cd /d "%~dp0"
 echo Собираю публичную папку dist...
 if exist dist rmdir /s /q dist
 mkdir dist\seed
-copy /y index.html news.html matches.html rankings.html events.html event.html bracket.html article.html team.html player.html players.html dist\ >nul
+for %%F in (index.html news.html matches.html rankings.html events.html event.html bracket.html article.html team.html player.html players.html) do copy /y %%F dist\ >nul
 xcopy /y /q /s /i assets dist\assets >nul
 copy /y seed\data.js dist\seed\ >nul
 if exist dist\assets\js\admin.js del dist\assets\js\admin.js
