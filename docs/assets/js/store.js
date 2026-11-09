@@ -1,6 +1,17 @@
-/* Data layer: everything lives in localStorage under one key. */
+/* Data layer: every game keeps its own base under its own key. */
 (function (global) {
-  const KEY = 'clutch-tv.data.v1';
+  /* CS2 is the original site: same key, same seed file, nothing about it moves. */
+  const GAMES = {
+    cs2: { id: 'cs2', label: 'Counter-Strike 2', short: 'CS2', tagline: 'Counter-Strike 2 · новости, матчи, рейтинг', key: 'clutch-tv.data.v1', seed: 'CLUTCH_SEED', file: 'data.js' },
+    standoff: { id: 'standoff', label: 'Standoff 2', short: 'Standoff 2', tagline: 'Standoff 2 · новости, матчи, рейтинг', key: 'clutch-tv.data.standoff.v1', seed: 'CLUTCH_SEED_STANDOFF', file: 'data.standoff.js' }
+  };
+  const CHOICE_KEY = 'clutch-tv.game';
+  function chosenName() {
+    try { return localStorage.getItem(CHOICE_KEY) || ''; } catch (err) { return ''; }
+  }
+  /* Пока выбор не сделан, сайт живёт на базе CS2 — как и раньше. */
+  const gameChosen = () => !!GAMES[chosenName()];
+  const gameNow = () => GAMES[chosenName()] || GAMES.cs2;
   const ADMIN_KEY = 'clutch-tv.admin.key';
   const ADMIN_SESSION = 'clutch-tv.admin.ok';
   const KINDS = ['news', 'matches', 'teams', 'events', 'brackets', 'players'];
@@ -360,7 +371,7 @@
 
   /* seed/data.js is the published snapshot: whoever opens the site gets it, until the browser holds a newer base. */
   function snapshot() {
-    const data = global.CLUTCH_SEED;
+    const data = global[gameNow().seed];
     if (!data || typeof data !== 'object') return null;
     try { return hydrate(data); }
     catch (err) { console.error('CLUTCH.TV: публичный снимок не читается', err); return null; }
@@ -370,7 +381,7 @@
     let stored = null;
     seedUsed = false;
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = localStorage.getItem(gameNow().key);
       if (!raw) {
         broken = '';
         const fresh = snapshot();
@@ -398,7 +409,7 @@
     state.updatedAt = new Date().toISOString();
     seedUsed = false;
     try {
-      localStorage.setItem(KEY, JSON.stringify(state));
+      localStorage.setItem(gameNow().key, JSON.stringify(state));
       global.dispatchEvent(new CustomEvent('store:change'));
       return true;
     } catch (err) {
@@ -660,6 +671,15 @@
     allPlayers,
     realNick,
     state: read(),
+    GAMES,
+    game: gameNow,
+    gameChosen,
+    /* Выбор игры — одна запись в localStorage: база каждой игры живёт под своим ключом. */
+    setGame(name) {
+      if (!GAMES[name]) return false;
+      try { localStorage.setItem(CHOICE_KEY, name); } catch (err) { /* приватный режим: база не сохранится нигде */ }
+      return true;
+    },
     reload() { this.state = read(); return this.state; },
     list(kind) { return this.state[kind] || []; },
     find(kind, id) { return this.list(kind).find((x) => x.id === id) || null; },
@@ -667,7 +687,7 @@
     isEmpty() { return KINDS.every((k) => this.list(k).length === 0); },
     broken() { return broken; },
     /* True while what is on screen is the shipped demo snapshot, not somebody's own base. */
-    seedDemo() { return seedUsed && !!(global.CLUTCH_SEED && global.CLUTCH_SEED.demo); },
+    seedDemo() { return seedUsed && !!(global[gameNow().seed] && global[gameNow().seed].demo); },
     save() { return write(this.state); },
     add(kind, obj) {
       const item = Object.assign({ id: uid() }, obj);

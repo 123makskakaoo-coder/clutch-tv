@@ -285,15 +285,48 @@
     ['admin.html', 'admin', 'Админка']
   ];
 
+  /* Чипы игры в шапке: базы CS2 и Standoff 2 не пересекаются, переключение запоминается браузером. */
+  function gameChips() {
+    const now = Store.game();
+    return Object.keys(Store.GAMES).map((id) => {
+      const g = Store.GAMES[id];
+      return `<button class="chip${g.id === now.id ? ' on' : ''}" data-act="pick-game" data-game="${esc(g.id)}">${esc(g.short)}</button>`;
+    }).join('');
+  }
+
+  /* Первый заход — спрашиваем игру, пока выбор не сделан. */
+  function gameChooser() {
+    document.title = 'Выбор игры — CLUTCH.TV';
+    const mount = document.getElementById('content');
+    if (!mount) return false;
+    mount.innerHTML = `<div class="pick">
+      <div class="page-title"><h1>Выберите игру</h1><p>две базы на одном сайте</p></div>
+      <p class="hint">У каждой игры своя база: новости, матчи, рейтинг, турниры, сетки и игроки не пересекаются. Выбор запомнится для этого браузера, поменять его можно чипами в шапке.</p>
+      <div class="pick-grid">
+        ${Object.keys(Store.GAMES).map((id) => {
+          const g = Store.GAMES[id];
+          return `<button class="pick-card" data-act="pick-game" data-game="${esc(g.id)}">
+            <b>${esc(g.label)}</b>
+            <span>${g.id === 'cs2' ? 'Знакомая база: новости, матчи, рейтинг, турниры и сетки по CS2' : 'Такой же сайт по Standoff 2, но своя база — без записей отсюда'}</span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
+    return true;
+  }
+
   function renderChrome(active) {
     const header = document.getElementById('chrome-header');
+    /* Вкладка браузера называет ту игру, чья база сейчас открыта. */
+    if (active === 'home') document.title = `CLUTCH.TV — новости, матчи и рейтинг по ${Store.game().label}`;
     /* A published copy has no editor in it, so its links stay hidden unless the admin key opened this session. */
     document.body.classList.toggle('no-admin', !editable());
     if (!header) return;
     header.className = 'topbar';
     header.innerHTML = `<div class="wrap">
       <a class="logo" href="index.html">CLUTCH<span>.TV</span></a>
-      <span class="tagline">Counter-Strike · новости, матчи, рейтинг</span>
+      <span class="tagline">${esc(Store.game().tagline)}</span>
+      <span class="game-pick">${gameChips()}</span>
       <nav class="main">${NAV.map(([href, key, label]) =>
         `<a href="${href}" class="${key === (active === 'event' ? 'events' : active) ? 'active' : ''}">${label}</a>`).join('')}</nav>
       <form class="search" action="news.html">
@@ -305,7 +338,7 @@
     if (footer) {
       footer.className = 'site';
       footer.innerHTML = `<div class="wrap">
-        <span>CLUTCH.TV — сайт о Counter-Strike. Не связан с HLTV.org.</span>
+        <span>CLUTCH.TV — сайт о ${esc(Store.game().label)}. Не связан с HLTV.org.</span>
         ${Store.seedDemo() ? '<span>Данные сейчас демонстрационные — их заполняет владелец сайта.</span>' : ''}
         <span>Обновлено: ${Store.state.updatedAt ? fmtDateTime(Store.state.updatedAt) : '—'}</span>
       </div>`;
@@ -320,10 +353,11 @@
     }
     /* Служебные плашки показываем только тому, кто может их починить: на публичной копии их нет. */
     if (Store.isEmpty() && mount && active !== 'admin' && editable()) {
+      const isCs2 = Store.game().id === 'cs2';
       mount.insertAdjacentHTML('afterbegin', `<div class="notice">
-        <span>В базе пока пусто — страницы выглядят пустыми.</span>
+        <span>${isCs2 ? 'В базе пока пусто — страницы выглядят пустыми.' : 'База Standoff 2 пуста — записи из CS2 в неё не переносятся.'}</span>
         <span>
-          <button class="btn" data-act="seed">Загрузить примеры</button>
+          ${isCs2 ? '<button class="btn" data-act="seed">Загрузить примеры</button>' : ''}
           <a class="btn primary" href="admin.html">Добавить своё</a>
         </span>
       </div>`);
@@ -1205,9 +1239,20 @@
     if (route) route();
   });
 
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act="pick-game"]');
+    if (!btn) return;
+    e.preventDefault();
+    if (Store.game().id === btn.dataset.game) return;
+    Store.setGame(btn.dataset.game);
+    location.reload();
+  });
+
   window.App = { esc, param, fmtDate, fmtDateTime, rel, countdown, Views, renderChrome, ROUTES, newsRow, editable };
 
   const active = document.body.dataset.page;
+  /* Пока игра не выбрана, вместо страницы — выбор. Админка открывается и так: там свои чипы игры. */
+  if (ROUTES[active] && !Store.gameChosen() && gameChooser()) { renderChrome('pick'); return; }
   if (ROUTES[active]) ROUTES[active]();
   renderChrome(active);
   setInterval(() => { if (ROUTES[active]) ROUTES[active](); }, 60000);
